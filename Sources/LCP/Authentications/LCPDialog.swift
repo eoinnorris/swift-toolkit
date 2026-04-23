@@ -94,7 +94,7 @@ public struct LCPDialog: View {
                 request.submit(passphrase)
             },
             onForgotPassphrase: request.license.hintLink?.url().map { url in
-                { LCPDialog.deviceOpen(url: url.url) }
+                { DeviceAttributes.deviceOpen(url: url.url) }
             }
         )
     }
@@ -274,15 +274,6 @@ public struct LCPDialog: View {
                 .frame(maxWidth: .infinity, alignment: .center)
             }
         }
-    }
-
-    static func deviceOpen(url: URL) {
-        #if canImport(UIKit)
-            UIApplication.shared.open(url)
-        #endif
-        #if canImport(AppKit)
-            NSWorkspace.shared.open(url)
-        #endif
     }
 
     private func submit() {
