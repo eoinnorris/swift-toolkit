@@ -24,129 +24,129 @@ public protocol LCPRenewDelegate {
 }
 
 #if canImport(UIKit)
-import UIKit
+    import UIKit
 
-/// Default `LCPRenewDelegate` implementation using standard views.
-///
-/// No date picker is presented for selecting a preferred end date. If you want to support one, you can subclass or
-/// decorate `LCPRenewDelegate`.
-public class LCPDefaultRenewDelegate: NSObject, LCPRenewDelegate {
-    private let presentingViewController: UIViewController
-    private let modalPresentationStyle: UIModalPresentationStyle
+    /// Default `LCPRenewDelegate` implementation using standard views.
+    ///
+    /// No date picker is presented for selecting a preferred end date. If you want to support one, you can subclass or
+    /// decorate `LCPRenewDelegate`.
+    public class LCPDefaultRenewDelegate: NSObject, LCPRenewDelegate {
+        private let presentingViewController: UIViewController
+        private let modalPresentationStyle: UIModalPresentationStyle
 
-    public init(presentingViewController: UIViewController, modalPresentationStyle: UIModalPresentationStyle = .formSheet) {
-        self.presentingViewController = presentingViewController
-        self.modalPresentationStyle = modalPresentationStyle
+        public init(presentingViewController: UIViewController, modalPresentationStyle: UIModalPresentationStyle = .formSheet) {
+            self.presentingViewController = presentingViewController
+            self.modalPresentationStyle = modalPresentationStyle
+        }
+
+        public func preferredEndDate(maximum: Date?) async throws -> Date? {
+            nil
+        }
+
+        @MainActor
+        public func presentWebPage(url: HTTPURL) async throws {
+            await withCheckedContinuation { continuation in
+                webPageContinuation = continuation
+
+                let safariVC = SFSafariViewController(url: url.url)
+                safariVC.modalPresentationStyle = modalPresentationStyle
+                safariVC.presentationController?.delegate = self
+                safariVC.delegate = self
+                presentingViewController.present(safariVC, animated: true)
+            }
+        }
+
+        private var webPageContinuation: CheckedContinuation<Void, Never>?
     }
 
-    public func preferredEndDate(maximum: Date?) async throws -> Date? {
-        nil
-    }
-
-    @MainActor
-    public func presentWebPage(url: HTTPURL) async throws {
-        await withCheckedContinuation { continuation in
-            webPageContinuation = continuation
-
-            let safariVC = SFSafariViewController(url: url.url)
-            safariVC.modalPresentationStyle = modalPresentationStyle
-            safariVC.presentationController?.delegate = self
-            safariVC.delegate = self
-            presentingViewController.present(safariVC, animated: true)
+    extension LCPDefaultRenewDelegate: UIAdaptivePresentationControllerDelegate {
+        public func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
+            webPageContinuation?.resume(returning: ())
+            webPageContinuation = nil
         }
     }
 
-    private var webPageContinuation: CheckedContinuation<Void, Never>?
-}
-
-extension LCPDefaultRenewDelegate: UIAdaptivePresentationControllerDelegate {
-    public func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
-        webPageContinuation?.resume(returning: ())
-        webPageContinuation = nil
+    extension LCPDefaultRenewDelegate: SFSafariViewControllerDelegate {
+        public func safariViewControllerDidFinish(_ controller: SFSafariViewController) {
+            webPageContinuation?.resume(returning: ())
+            webPageContinuation = nil
+        }
     }
-}
-
-extension LCPDefaultRenewDelegate: SFSafariViewControllerDelegate {
-    public func safariViewControllerDidFinish(_ controller: SFSafariViewController) {
-        webPageContinuation?.resume(returning: ())
-        webPageContinuation = nil
-    }
-}
 #endif
 
 #if canImport(AppKit)
-import AppKit
-import WebKit
+    import AppKit
+    import WebKit
 
-/// Default `LCPRenewDelegate` implementation using standard AppKit views.
-///
-/// No date picker is presented for selecting a preferred end date. If you want to support one, you
-/// can subclass or decorate `LCPRenewDelegate`.
-public class LCPDefaultRenewDelegate: NSObject, LCPRenewDelegate {
-    private let parentWindow: NSWindow
-    private let sheetSize: NSSize
+    /// Default `LCPRenewDelegate` implementation using standard AppKit views.
+    ///
+    /// No date picker is presented for selecting a preferred end date. If you want to support one, you
+    /// can subclass or decorate `LCPRenewDelegate`.
+    public class LCPDefaultRenewDelegate: NSObject, LCPRenewDelegate {
+        private let parentWindow: NSWindow
+        private let sheetSize: NSSize
 
-    public init(parentWindow: NSWindow, sheetSize: NSSize = NSSize(width: 600, height: 480)) {
-        self.parentWindow = parentWindow
-        self.sheetSize = sheetSize
-    }
+        public init(parentWindow: NSWindow, sheetSize: NSSize = NSSize(width: 600, height: 480)) {
+            self.parentWindow = parentWindow
+            self.sheetSize = sheetSize
+        }
 
-    public func preferredEndDate(maximum: Date?) async throws -> Date? {
-        nil
-    }
+        public func preferredEndDate(maximum: Date?) async throws -> Date? {
+            nil
+        }
 
-    @MainActor
-    public func presentWebPage(url: HTTPURL) async throws {
-        await withCheckedContinuation { continuation in
-            webPageContinuation = continuation
+        @MainActor
+        public func presentWebPage(url: HTTPURL) async throws {
+            await withCheckedContinuation { continuation in
+                webPageContinuation = continuation
 
-            let panel = NSPanel(
-                contentRect: NSRect(origin: .zero, size: sheetSize),
-                styleMask: [.titled, .closable, .resizable],
-                backing: .buffered,
-                defer: true
-            )
-            panel.title = "Renew Loan"
-            panel.isReleasedWhenClosed = false
+                let panel = NSPanel(
+                    contentRect: NSRect(origin: .zero, size: sheetSize),
+                    styleMask: [.titled, .closable, .resizable],
+                    backing: .buffered,
+                    defer: true
+                )
+                panel.title = "Renew Loan"
+                panel.isReleasedWhenClosed = false
 
-            let webView = WKWebView(frame: panel.contentLayoutRect)
-            webView.autoresizingMask = [.width, .height]
-            webView.navigationDelegate = self
-            webView.load(URLRequest(url: url.url))
+                let webView = WKWebView(frame: panel.contentLayoutRect)
+                webView.autoresizingMask = [.width, .height]
+                webView.navigationDelegate = self
+                webView.load(URLRequest(url: url.url))
 
-            panel.contentView = webView
-            currentPanel = panel
+                panel.contentView = webView
+                currentPanel = panel
 
-            parentWindow.beginSheet(panel) { [weak self] _ in
-                self?.dismissWebPage()
+                parentWindow.beginSheet(panel) { [weak self] _ in
+                    self?.dismissWebPage()
+                }
             }
+        }
+
+        private var webPageContinuation: CheckedContinuation<Void, Never>?
+        private var currentPanel: NSPanel?
+
+        @MainActor
+        private func dismissWebPage() {
+            webPageContinuation?.resume(returning: ())
+            webPageContinuation = nil
+            currentPanel = nil
         }
     }
 
-    private var webPageContinuation: CheckedContinuation<Void, Never>?
-    private var currentPanel: NSPanel?
+    extension LCPDefaultRenewDelegate: WKNavigationDelegate {
+        public func webView(
+            _ webView: WKWebView,
+            decidePolicyFor navigationAction: WKNavigationAction,
+            decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
+        ) {
+            decisionHandler(.allow)
+        }
 
-    @MainActor
-    private func dismissWebPage() {
-        webPageContinuation?.resume(returning: ())
-        webPageContinuation = nil
-        currentPanel = nil
+        public func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+            guard let panel = currentPanel else { return }
+            parentWindow.endSheet(panel)
+        }
     }
-}
-
-extension LCPDefaultRenewDelegate: WKNavigationDelegate {
-    public func webView(
-        _ webView: WKWebView,
-        decidePolicyFor navigationAction: WKNavigationAction,
-        decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
-    ) {
-        decisionHandler(.allow)
-    }
-
-    public func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-        guard let panel = currentPanel else { return }
-        parentWindow.endSheet(panel)
-    }
-}
 
 #endif

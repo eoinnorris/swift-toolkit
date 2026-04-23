@@ -30,7 +30,8 @@ public final class NowPlayingInfo {
                     artist: String? = nil,
                     artwork: NativeImage? = nil,
                     chapterCount: Int? = nil,
-                    chapterNumber: Int? = nil) {
+                    chapterNumber: Int? = nil)
+        {
             self.title = title
             self.artist = artist
             self.artwork = artwork

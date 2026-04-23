@@ -6,11 +6,13 @@
 
 import Foundation
 #if canImport(UIKit)
-import UIKit
-public typealias NativeColor = UIColor
+    import UIKit
+
+    public typealias NativeColor = UIColor
 #else
-import AppKit
-public typealias NativeColor = NSColor
+    import AppKit
+
+    public typealias NativeColor = NSColor
 #endif
 
 /// Extends Core Graphics's `CGPDFDocument` to conform to `PDFDocument`.
@@ -123,12 +125,12 @@ extension CGPDFDocument: PDFDocument {
         guard let cgImage = context.makeImage() else {
             return nil
         }
-#if canImport(UIKit)
-        return NativeImage(cgImage: cgImage)
-#endif
-#if canImport(AppKit)
-        return NativeImage(cgImage: cgImage, size: CGSize(width: cgImage.width, height: cgImage.height))
-#endif
+        #if canImport(UIKit)
+            return NativeImage(cgImage: cgImage)
+        #endif
+        #if canImport(AppKit)
+            return NativeImage(cgImage: cgImage, size: CGSize(width: cgImage.width, height: cgImage.height))
+        #endif
     }
 
     public func tableOfContents() async throws -> [PDFOutlineNode] {

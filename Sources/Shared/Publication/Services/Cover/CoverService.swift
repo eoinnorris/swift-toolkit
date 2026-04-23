@@ -5,12 +5,11 @@
 //
 
 import Foundation
-import Foundation
 
 #if canImport(AppKit)
-import AppKit
+    import AppKit
 #else
-import UIKit
+    import UIKit
 #endif
 
 public typealias CoverServiceFactory = (PublicationServiceContext) -> CoverService?

@@ -90,10 +90,10 @@ final class ZIPFoundationArchiveFactory {
 /// bytes.
 private func canAllocate(_ length: Int) -> Bool {
     #if canImport(UIKit)
-    return os_proc_available_memory() > length
+        return os_proc_available_memory() > length
     #else
-    // macOS will use virtual memory
-    return true
+        // macOS will use virtual memory
+        return true
     #endif
 }
 

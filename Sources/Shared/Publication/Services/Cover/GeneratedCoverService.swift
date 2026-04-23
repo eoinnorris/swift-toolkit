@@ -7,9 +7,9 @@
 import Foundation
 
 #if canImport(AppKit)
-import AppKit
+    import AppKit
 #else
-import UIKit
+    import UIKit
 #endif
 
 /// A `CoverService` which holds a lazily generated cover bitmap in memory.

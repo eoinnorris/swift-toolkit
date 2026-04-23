@@ -9,213 +9,211 @@ import CoreGraphics
 import Foundation
 
 #if canImport(UIKit)
-import UIKit
+    import UIKit
 #endif
 
 #if canImport(AppKit)
-import AppKit
+    import AppKit
 
-extension NativeImage {
+    extension NativeImage {
+        func scaleToFit(maxSize: CGSize) -> NativeImage {
+            if size.width <= maxSize.width, size.height <= maxSize.height {
+                return self
+            }
 
-    func scaleToFit(maxSize: CGSize) -> NativeImage {
-        if size.width <= maxSize.width, size.height <= maxSize.height {
-            return self
+            let targetRect = AVMakeRect(aspectRatio: size, insideRect: CGRect(origin: .zero, size: maxSize))
+
+            let image = NSImage(size: targetRect.size)
+            image.lockFocus()
+            draw(in: targetRect)
+            image.unlockFocus()
+
+            return image
         }
 
-        let targetRect = AVMakeRect(aspectRatio: size, insideRect: CGRect(origin: .zero, size: maxSize))
+        public func pngData() -> Data? {
+            guard
+                let tiffData = tiffRepresentation,
+                let bitmap = NSBitmapImageRep(data: tiffData)
+            else {
+                return nil
+            }
 
-        let image = NSImage(size: targetRect.size)
-        image.lockFocus()
-        draw(in: targetRect)
-        image.unlockFocus()
-
-        return image
+            return bitmap.representation(using: .png, properties: [:])
+        }
     }
-
-    public func pngData() -> Data? {
-           guard
-               let tiffData = tiffRepresentation,
-               let bitmap = NSBitmapImageRep(data: tiffData)
-           else {
-               return nil
-           }
-
-           return bitmap.representation(using: .png, properties: [:])
-       }
-}
 
 #endif
 
-
 #if canImport(UIKit)
 
-extension UIImage {
-    /// Creates a `UIImage` by rendering an SVG document from the given data,
-    /// scaled down to fit `maxSize` pixels with `scale = 1` while preserving
-    /// the aspect ratio.
-    ///
-    /// If the SVG canvas is smaller than `maxSize`, it is rendered at its
-    /// native size to avoid upscaling embedded bitmaps.
-    ///
-    /// Returns `nil` if the data is not a valid SVG or if SVG rendering is
-    /// unavailable on the current platform.
-    static func fromSVG(_ data: Data, maxSize: CGSize) -> UIImage? {
-        guard
-            let createFromData = CoreSVG.createFromData,
-            let getCanvasSize = CoreSVG.getCanvasSize,
-            let drawInContext = CoreSVG.drawInContext,
-            let releaseDocument = CoreSVG.releaseDocument,
-            let document = createFromData(data as CFData, nil)
-        else {
-            return nil
-        }
-        let svgDocument = document.takeUnretainedValue()
-        defer { releaseDocument(svgDocument) }
+    extension UIImage {
+        /// Creates a `UIImage` by rendering an SVG document from the given data,
+        /// scaled down to fit `maxSize` pixels with `scale = 1` while preserving
+        /// the aspect ratio.
+        ///
+        /// If the SVG canvas is smaller than `maxSize`, it is rendered at its
+        /// native size to avoid upscaling embedded bitmaps.
+        ///
+        /// Returns `nil` if the data is not a valid SVG or if SVG rendering is
+        /// unavailable on the current platform.
+        static func fromSVG(_ data: Data, maxSize: CGSize) -> UIImage? {
+            guard
+                let createFromData = CoreSVG.createFromData,
+                let getCanvasSize = CoreSVG.getCanvasSize,
+                let drawInContext = CoreSVG.drawInContext,
+                let releaseDocument = CoreSVG.releaseDocument,
+                let document = createFromData(data as CFData, nil)
+            else {
+                return nil
+            }
+            let svgDocument = document.takeUnretainedValue()
+            defer { releaseDocument(svgDocument) }
 
-        let canvasSize = getCanvasSize(svgDocument)
-        guard canvasSize.width > 0, canvasSize.height > 0 else {
-            return nil
+            let canvasSize = getCanvasSize(svgDocument)
+            guard canvasSize.width > 0, canvasSize.height > 0 else {
+                return nil
+            }
+
+            // Render at the smaller of the canvas size and the requested max
+            // size, preserving the SVG aspect ratio.
+            let renderSize: CGSize
+            if canvasSize.width <= maxSize.width, canvasSize.height <= maxSize.height {
+                renderSize = canvasSize
+            } else {
+                let targetRect = AVMakeRect(
+                    aspectRatio: canvasSize,
+                    insideRect: CGRect(origin: .zero, size: maxSize)
+                )
+                renderSize = targetRect.size
+            }
+
+            let format = UIGraphicsImageRendererFormat()
+            format.scale = 1
+            let renderer = UIGraphicsImageRenderer(size: renderSize, format: format)
+            return renderer.image { ctx in
+                let cgContext = ctx.cgContext
+                let scaleX = renderSize.width / canvasSize.width
+                let scaleY = renderSize.height / canvasSize.height
+                cgContext.translateBy(x: 0, y: renderSize.height)
+                cgContext.scaleBy(x: scaleX, y: -scaleY)
+                drawInContext(cgContext, svgDocument)
+            }
         }
 
-        // Render at the smaller of the canvas size and the requested max
-        // size, preserving the SVG aspect ratio.
-        let renderSize: CGSize
-        if canvasSize.width <= maxSize.width, canvasSize.height <= maxSize.height {
-            renderSize = canvasSize
-        } else {
-            let targetRect = AVMakeRect(
-                aspectRatio: canvasSize,
-                insideRect: CGRect(origin: .zero, size: maxSize)
-            )
-            renderSize = targetRect.size
-        }
+        /// Returns the image scaled down to fit within `maxSize` pixels, preserving
+        /// the aspect ratio without upscaling.
+        ///
+        /// The returned image always has `scale = 1`.
+        func scaleToFit(maxSize: CGSize) -> UIImage {
+            let pixelSize = CGSize(width: size.width * scale, height: size.height * scale)
+            let renderSize: CGSize
+            if pixelSize.width <= maxSize.width, pixelSize.height <= maxSize.height {
+                if scale == 1 { return self }
+                renderSize = pixelSize
+            } else {
+                renderSize = AVMakeRect(aspectRatio: pixelSize, insideRect: CGRect(origin: .zero, size: maxSize)).size
+            }
 
-        let format = UIGraphicsImageRendererFormat()
-        format.scale = 1
-        let renderer = UIGraphicsImageRenderer(size: renderSize, format: format)
-        return renderer.image { ctx in
+            let format = UIGraphicsImageRendererFormat()
+            format.scale = 1
+            let renderer = UIGraphicsImageRenderer(size: renderSize, format: format)
+            return renderer.image { _ in
+                draw(in: CGRect(origin: .zero, size: renderSize))
+            }
+        }
+    }
+#endif
+
+#if canImport(AppKit)
+    import AppKit
+    import AVFoundation
+
+    extension NSImage {
+        /// Creates an `NSImage` by rendering an SVG document from the given data,
+        /// scaled down to fit `maxSize` pixels with a 1× backing scale while
+        /// preserving the aspect ratio.
+        ///
+        /// If the SVG canvas is smaller than `maxSize`, it is rendered at its
+        /// native size to avoid upscaling embedded bitmaps.
+        ///
+        /// Returns `nil` if the data is not a valid SVG or if SVG rendering is
+        /// unavailable on the current platform.
+        static func fromSVG(_ data: Data, maxSize: CGSize) -> NSImage? {
+            guard
+                let createFromData = CoreSVG.createFromData,
+                let getCanvasSize = CoreSVG.getCanvasSize,
+                let drawInContext = CoreSVG.drawInContext,
+                let releaseDocument = CoreSVG.releaseDocument,
+                let document = createFromData(data as CFData, nil)
+            else {
+                return nil
+            }
+            let svgDocument = document.takeUnretainedValue()
+            defer { releaseDocument(svgDocument) }
+
+            let canvasSize = getCanvasSize(svgDocument)
+            guard canvasSize.width > 0, canvasSize.height > 0 else {
+                return nil
+            }
+
+            // Render at the smaller of the canvas size and the requested max
+            // size, preserving the SVG aspect ratio.
+            let renderSize: CGSize
+            if canvasSize.width <= maxSize.width, canvasSize.height <= maxSize.height {
+                renderSize = canvasSize
+            } else {
+                let targetRect = AVMakeRect(
+                    aspectRatio: canvasSize,
+                    insideRect: CGRect(origin: .zero, size: maxSize)
+                )
+                renderSize = targetRect.size
+            }
+
+            // Build a 1× 32-bit RGBA bitmap rep to draw into.
+            guard let rep = NSBitmapImageRep(
+                bitmapDataPlanes: nil,
+                pixelsWide: Int(renderSize.width),
+                pixelsHigh: Int(renderSize.height),
+                bitsPerSample: 8,
+                samplesPerPixel: 4,
+                hasAlpha: true,
+                isPlanar: false,
+                colorSpaceName: .deviceRGB,
+                bytesPerRow: 0,
+                bitsPerPixel: 0
+            ) else {
+                return nil
+            }
+            rep.size = renderSize // 1 pt == 1 px
+
+            NSGraphicsContext.saveGraphicsState()
+            defer { NSGraphicsContext.restoreGraphicsState() }
+
+            guard let ctx = NSGraphicsContext(bitmapImageRep: rep) else {
+                return nil
+            }
+            NSGraphicsContext.current = ctx
             let cgContext = ctx.cgContext
+
+            // CoreSVG draws in a Y-up coordinate system; flip to match AppKit's
+            // Y-down (screen) convention the same way UIKit does it.
             let scaleX = renderSize.width / canvasSize.width
             let scaleY = renderSize.height / canvasSize.height
             cgContext.translateBy(x: 0, y: renderSize.height)
             cgContext.scaleBy(x: scaleX, y: -scaleY)
+
             drawInContext(cgContext, svgDocument)
+
+            let image = NSImage(size: renderSize)
+            image.addRepresentation(rep)
+            return image
         }
     }
-
-    /// Returns the image scaled down to fit within `maxSize` pixels, preserving
-    /// the aspect ratio without upscaling.
-    ///
-    /// The returned image always has `scale = 1`.
-    func scaleToFit(maxSize: CGSize) -> UIImage {
-        let pixelSize = CGSize(width: size.width * scale, height: size.height * scale)
-        let renderSize: CGSize
-        if pixelSize.width <= maxSize.width, pixelSize.height <= maxSize.height {
-            if scale == 1 { return self }
-            renderSize = pixelSize
-        } else {
-            renderSize = AVMakeRect(aspectRatio: pixelSize, insideRect: CGRect(origin: .zero, size: maxSize)).size
-        }
-
-        let format = UIGraphicsImageRendererFormat()
-        format.scale = 1
-        let renderer = UIGraphicsImageRenderer(size: renderSize, format: format)
-        return renderer.image { _ in
-            draw(in: CGRect(origin: .zero, size: renderSize))
-        }
-    }
-}
 #endif
 
-#if canImport(AppKit)
-import AppKit
-import AVFoundation
-
-extension NSImage {
-    /// Creates an `NSImage` by rendering an SVG document from the given data,
-    /// scaled down to fit `maxSize` pixels with a 1× backing scale while
-    /// preserving the aspect ratio.
-    ///
-    /// If the SVG canvas is smaller than `maxSize`, it is rendered at its
-    /// native size to avoid upscaling embedded bitmaps.
-    ///
-    /// Returns `nil` if the data is not a valid SVG or if SVG rendering is
-    /// unavailable on the current platform.
-    static func fromSVG(_ data: Data, maxSize: CGSize) -> NSImage? {
-        guard
-            let createFromData = CoreSVG.createFromData,
-            let getCanvasSize = CoreSVG.getCanvasSize,
-            let drawInContext = CoreSVG.drawInContext,
-            let releaseDocument = CoreSVG.releaseDocument,
-            let document = createFromData(data as CFData, nil)
-        else {
-            return nil
-        }
-        let svgDocument = document.takeUnretainedValue()
-        defer { releaseDocument(svgDocument) }
-        
-        let canvasSize = getCanvasSize(svgDocument)
-        guard canvasSize.width > 0, canvasSize.height > 0 else {
-            return nil
-        }
-        
-        // Render at the smaller of the canvas size and the requested max
-        // size, preserving the SVG aspect ratio.
-        let renderSize: CGSize
-        if canvasSize.width <= maxSize.width, canvasSize.height <= maxSize.height {
-            renderSize = canvasSize
-        } else {
-            let targetRect = AVMakeRect(
-                aspectRatio: canvasSize,
-                insideRect: CGRect(origin: .zero, size: maxSize)
-            )
-            renderSize = targetRect.size
-        }
-        
-        // Build a 1× 32-bit RGBA bitmap rep to draw into.
-        guard let rep = NSBitmapImageRep(
-            bitmapDataPlanes: nil,
-            pixelsWide: Int(renderSize.width),
-            pixelsHigh: Int(renderSize.height),
-            bitsPerSample: 8,
-            samplesPerPixel: 4,
-            hasAlpha: true,
-            isPlanar: false,
-            colorSpaceName: .deviceRGB,
-            bytesPerRow: 0,
-            bitsPerPixel: 0
-        ) else {
-            return nil
-        }
-        rep.size = renderSize // 1 pt == 1 px
-        
-        NSGraphicsContext.saveGraphicsState()
-        defer { NSGraphicsContext.restoreGraphicsState() }
-        
-        guard let ctx = NSGraphicsContext(bitmapImageRep: rep) else {
-            return nil
-        }
-        NSGraphicsContext.current = ctx
-        let cgContext = ctx.cgContext
-        
-        // CoreSVG draws in a Y-up coordinate system; flip to match AppKit's
-        // Y-down (screen) convention the same way UIKit does it.
-        let scaleX = renderSize.width / canvasSize.width
-        let scaleY = renderSize.height / canvasSize.height
-        cgContext.translateBy(x: 0, y: renderSize.height)
-        cgContext.scaleBy(x: scaleX, y: -scaleY)
-        
-        drawInContext(cgContext, svgDocument)
-        
-        let image = NSImage(size: renderSize)
-        image.addRepresentation(rep)
-        return image
-    }
-}
-#endif
-
-    /// Returns the image scaled down to fit within `maxSize` pixels,
-    /// preserving the as
+// Returns the image scaled down to fit within `maxSize` pixels,
+// preserving the as
 
 private enum CoreSVG {
     typealias CreateFromData = @convention(c) (CFData, CFDictionary?) -> Unmanaged<CFTypeRef>?

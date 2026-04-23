@@ -7,11 +7,13 @@
 import Foundation
 
 #if canImport(AppKit)
-import AppKit
-public typealias NativeImage = NSImage
+    import AppKit
+
+    public typealias NativeImage = NSImage
 #else
-import UIKit
-public typealias NativeImage = UIImage
+    import UIKit
+
+    public typealias NativeImage = UIImage
 #endif
 
 /// A `CoverService` which retrieves the cover from the publication container.
