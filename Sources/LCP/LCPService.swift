@@ -6,7 +6,14 @@
 
 import Foundation
 import ReadiumShared
+
+#if canImport(UIKit)
 import UIKit
+#endif
+
+#if canImport(AppKit)
+import SystemConfiguration
+#endif
 
 /// Service used to acquire and open publications protected with LCP.
 ///
@@ -63,7 +70,7 @@ public final class LCPService: Loggable {
             licenses: licenseRepository,
             crl: CRLService(httpClient: httpClient),
             device: DeviceService(
-                deviceName: deviceName ?? UIDevice.current.name,
+                deviceName: deviceName ?? DeviceAttribute.name,
                 deviceId: deviceId,
                 repository: licenseRepository,
                 httpClient: httpClient
@@ -166,4 +173,19 @@ public enum LicenseDocumentSource {
 
     /// LCPL already parsed to a ``LicenseDocument``.
     case licenseDocument(LicenseDocument)
+}
+
+struct DeviceAttribute: Codable {
+    
+    static var name: String {
+#if canImport(UIKit)
+    var defaultDeviceName = deviceName ?? UIDevice.current.name
+#endif
+        
+#if canImport(AppKit)
+        let name = SCDynamicStoreCopyComputerName(nil, nil) as String?
+        let defaultDeviceName =  name ?? "Mac"
+#endif
+        return defaultDeviceName
+    }
 }

@@ -94,7 +94,7 @@ public struct LCPDialog: View {
                 request.submit(passphrase)
             },
             onForgotPassphrase: request.license.hintLink?.url().map { url in
-                { UIApplication.shared.open(url.url) }
+                { LCPDialog.deviceOpen(url: url.url ) }
             }
         )
     }
@@ -103,7 +103,17 @@ public struct LCPDialog: View {
     @FocusState private var isFieldFocused
     @State private var passphrase: String = ""
 
+    
     public var body: some View {
+    #if canImport(UIKit)
+        iosBody
+    #else
+        macBody
+    #endif
+    }
+    
+#if canImport(UIKit)
+    private var iOSBody: some View {
         NavigationView {
             ScrollViewReader { scrollProxy in
                 Form {
@@ -138,6 +148,38 @@ public struct LCPDialog: View {
         }
         .navigationViewStyle(.stack)
     }
+#endif
+    
+#if canImport(AppKit)
+    private var macBody: some View {
+        NavigationView {
+            ScrollViewReader { scrollProxy in
+                Form {
+                    header
+                    input
+                    buttons
+                }
+                .onAppear {
+                    isFieldFocused = true
+                }
+            }
+            .scrollDismissesKeyboardIfAvailable()
+            .navigationTitle(ReadiumLCPLocalizedStringKey("dialog.title"))
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(ReadiumLCPLocalizedStringKey("dialog.actions.cancel"), role: .cancel) {
+                        onCancel?()
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+#endif
+    
+    private var iosBody: some View {
+        EmptyView()
+    }
 
     private var header: some View {
         Section {
@@ -169,20 +211,33 @@ public struct LCPDialog: View {
         .alignListRowSeparatorLeading()
         .font(.callout)
     }
+    
+    private var textField: some View {
+        #if canImport(UIKit)
+        TextField(text: $passphrase) {
+            Text(ReadiumLCPLocalizedStringKey("dialog.passphrase.placeholder"))
+        }
+        .textInputAutocapitalization(.never)
+        .focused($isFieldFocused)
+        .submitLabel(.continue)
+        .onSubmit {
+            submit()
+        }
+        #else
+        TextField(text: $passphrase) {
+            Text(ReadiumLCPLocalizedStringKey("dialog.passphrase.placeholder"))
+        }
+        .focused($isFieldFocused)
+        .onSubmit {
+            submit()
+        }
+        #endif
+    }
 
     private var input: some View {
         Section {
             VStack(alignment: .leading, spacing: 8) {
-                TextField(text: $passphrase) {
-                    Text(ReadiumLCPLocalizedStringKey("dialog.passphrase.placeholder"))
-                }
-                .textInputAutocapitalization(.never)
-                .focused($isFieldFocused)
-                .submitLabel(.continue)
-                .onSubmit {
-                    submit()
-                }
-
+               textField
                 if let errorMessage = errorMessage {
                     HStack(spacing: 8) {
                         Image(systemName: "exclamationmark.circle")
@@ -222,6 +277,15 @@ public struct LCPDialog: View {
         }
     }
 
+    static func deviceOpen(url: URL) {
+    #if canImport(UIKit)
+    UIApplication.shared.open(url)
+    #endif
+    #if canImport(AppKit)
+    NSWorkspace.shared.open(url)
+    #endif
+    }
+    
     private func submit() {
         guard !passphrase.isEmpty else {
             return

@@ -6,6 +6,7 @@
 
 import Foundation
 import ReadiumShared
+#if canImport(UIKit)
 import UIKit
 
 /// An `LCPAuthenticating` implementation presenting a dialog to the user.
@@ -49,3 +50,51 @@ public class LCPDialogAuthentication: LCPAuthenticating, Loggable {
         }
     }
 }
+#endif
+
+
+#if canImport(AppKit)
+
+import AppKit
+
+public class LCPDialogAuthentication: LCPAuthenticating, Loggable {
+    private let animated: Bool
+
+    public init(animated: Bool = true) {
+        self.animated = animated
+    }
+
+    public func retrievePassphrase(
+        for license: LCPAuthenticatedLicense,
+        reason: LCPAuthenticationReason,
+        allowUserInteraction: Bool,
+        sender: Any?
+    ) async -> String? {
+        guard allowUserInteraction else { return nil }
+
+        // On macOS the sender should be an NSWindow (or NSViewController from which you grab the window)
+        let window: NSWindow? = {
+            if let w = sender as? NSWindow { return w }
+            if let vc = sender as? NSViewController { return vc.view.window }
+            return nil
+        }()
+
+        guard let parentWindow = window else {
+            log(.error, "Tried to present the LCP dialog without providing an NSWindow or NSViewController as `sender`")
+            return nil
+        }
+
+        return await withCheckedContinuation { continuation in
+            let dialogViewController = LCPDialogViewController(license: license, reason: reason) { passphrase in
+                parentWindow.endSheet(parentWindow.attachedSheet!)
+                continuation.resume(returning: passphrase!)
+            }
+
+            let sheetWindow = NSWindow(contentViewController: dialogViewController)
+            sheetWindow.styleMask = [.titled]
+
+            parentWindow.beginSheet(sheetWindow, completionHandler: nil)
+        }
+    }
+}
+#endif

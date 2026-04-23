@@ -5,7 +5,14 @@
 //
 
 import Foundation
+
+#if canImport(AppKit)
+import AppKit
+public typealias NativeImage = NSImage
+#else
 import UIKit
+public typealias NativeImage = UIImage
+#endif
 
 /// A `CoverService` which retrieves the cover from the publication container.
 ///
@@ -23,11 +30,11 @@ public final class ResourceCoverService: CoverService {
         self.context = context
     }
 
-    public func cover() async -> ReadResult<UIImage?> {
+    public func cover() async -> ReadResult<NativeImage?> {
         await loadCover(maxSize: nil)
     }
 
-    public func coverFitting(maxSize: CGSize) async -> ReadResult<UIImage?> {
+    public func coverFitting(maxSize: CGSize) async -> ReadResult<NativeImage?> {
         await loadCover(maxSize: maxSize)
     }
 
@@ -81,7 +88,7 @@ public final class ResourceCoverService: CoverService {
         return (data: data, mediaType: mediaType)
     }
 
-    private func loadCover(maxSize: CGSize?) async -> ReadResult<UIImage?> {
+    private func loadCover(maxSize: CGSize?) async -> ReadResult<NativeImage?> {
         for link in coverLinks() {
             if let image = await loadImage(from: link, maxSize: maxSize) {
                 return .success(image)
@@ -90,7 +97,7 @@ public final class ResourceCoverService: CoverService {
         return .success(nil)
     }
 
-    private func loadImage(from link: Link, maxSize: CGSize?) async -> UIImage? {
+    private func loadImage(from link: Link, maxSize: CGSize?) async -> NativeImage? {
         guard
             let (data, mediaType) = await readData(from: link),
             mediaType.isSupportedImage
@@ -99,10 +106,10 @@ public final class ResourceCoverService: CoverService {
         }
 
         if mediaType.matches(.svg) {
-            return UIImage.fromSVG(data, maxSize: maxSize ?? Self.defaultCoverMaxSize)
+            return NativeImage.fromSVG(data, maxSize: maxSize ?? Self.defaultCoverMaxSize)
         }
 
-        let image = UIImage(data: data)
+        let image = NativeImage(data: data)
         if let maxSize {
             return image?.scaleToFit(maxSize: maxSize)
         }

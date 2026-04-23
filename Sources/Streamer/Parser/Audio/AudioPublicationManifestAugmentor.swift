@@ -7,7 +7,6 @@
 import AVFoundation
 import Foundation
 import ReadiumShared
-import UIKit
 
 /// Implements a strategy to augment a `Manifest` of an audio publication with additional metadata and
 /// cover, for example by looking into the audio files metadata.
@@ -17,9 +16,9 @@ public protocol AudioPublicationManifestAugmentor {
 
 public struct AudioPublicationAugmentedManifest {
     public var manifest: Manifest
-    public var cover: UIImage?
+    public var cover: NativeImage?
 
-    public init(manifest: Manifest, cover: UIImage? = nil) {
+    public init(manifest: Manifest, cover: NativeImage? = nil) {
         self.manifest = manifest
         self.cover = cover
     }
@@ -79,7 +78,7 @@ public final class AVAudioPublicationManifestAugmentor: AudioPublicationManifest
         }
 
         manifest.metadata = metadata
-        let cover = avMetadata.filter([.commonIdentifierArtwork, .id3MetadataAttachedPicture, .iTunesMetadataCoverArt]).first(where: { $0.dataValue.flatMap(UIImage.init(data:)) })
+        let cover = avMetadata.filter([.commonIdentifierArtwork, .id3MetadataAttachedPicture, .iTunesMetadataCoverArt]).first(where: { $0.dataValue.flatMap(NativeImage.init(data:)) })
         return .init(manifest: manifest, cover: cover)
     }
 }

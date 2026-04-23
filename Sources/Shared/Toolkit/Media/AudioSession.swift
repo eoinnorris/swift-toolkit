@@ -6,7 +6,15 @@
 
 import AVFoundation
 import Foundation
+
+#if canImport(UIKit)
 import UIKit
+#endif
+
+#if canImport(AppKit)
+import AppKit
+#endif
+
 
 /// An user of the `AudioSession`, for example a media player object.
 public protocol AudioSessionUser: AnyObject {
@@ -18,6 +26,7 @@ public protocol AudioSessionUser: AnyObject {
     func play()
 }
 
+#if canImport(UIKit)
 public extension AudioSessionUser {
     var audioConfiguration: AudioSession.Configuration {
         .init()
@@ -245,3 +254,42 @@ public final class AudioSession: Loggable {
         }
     }
 }
+#endif
+
+#if canImport(AppKit)
+
+import Foundation
+
+
+public extension AudioSessionUser {
+    var audioConfiguration: AudioSession.Configuration {
+        .init()
+    }
+}
+
+/// No-op `AudioSession` for macOS. macOS does not have `AVAudioSession`, so
+/// all methods are stubs that maintain the same public interface as the iOS
+/// implementation without performing any audio session management.
+@MainActor
+public final class AudioSession {
+    public struct Configuration: Equatable {
+        public init() {}
+    }
+
+    /// Shared `AudioSession` for this app.
+    public nonisolated static let shared = AudioSession()
+
+    private nonisolated init() {}
+
+    /// Whether the audio session is currently interrupted. Always `false` on macOS.
+    public private(set) var isInterrupted: Bool = false
+
+    public nonisolated func start(with user: AudioSessionUser, isPlaying: Bool) {}
+
+    public nonisolated func end(for user: AudioSessionUser) {}
+
+    public nonisolated func user(_ user: AudioSessionUser, didChangePlaying isPlaying: Bool) {}
+}
+
+#endif
+

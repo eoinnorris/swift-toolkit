@@ -89,7 +89,12 @@ final class ZIPFoundationArchiveFactory {
 /// Indicates whether there is enough available free memory to allocate `length`
 /// bytes.
 private func canAllocate(_ length: Int) -> Bool {
-    os_proc_available_memory() > length
+    #if canImport(UIKit)
+    return os_proc_available_memory() > length
+    #else
+    // macOS will use virtual memory
+    return true
+    #endif
 }
 
 enum ResourceDataSourceError: Error {

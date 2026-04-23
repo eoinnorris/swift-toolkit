@@ -10,7 +10,9 @@ import PackageDescription
 let package = Package(
     name: "Readium",
     defaultLocalization: "en",
-    platforms: [.iOS("15.0")],
+    platforms: [
+    .iOS(.v15),
+    .macOS(.v14)],
     products: [
         .library(name: "ReadiumShared", targets: ["ReadiumShared"]),
         .library(name: "ReadiumStreamer", targets: ["ReadiumStreamer"]),
@@ -31,7 +33,7 @@ let package = Package(
         .package(url: "https://github.com/readium/ZIPFoundation.git", from: "3.0.1"),
         .package(url: "https://github.com/scinfu/SwiftSoup.git", from: "2.13.0"),
         .package(url: "https://github.com/stephencelis/SQLite.swift.git", from: "0.15.0"),
-        .package(url: "https://github.com/apple/swift-docc-plugin", from: "1.3.0"),
+        .package(url: "https://github.com/apple/swift-docc-plugin", from: "1.3.0")
     ],
     targets: [
         .target(
@@ -41,26 +43,22 @@ let package = Package(
                 "SwiftSoup",
                 "Zip",
                 .product(name: "ReadiumFuzi", package: "Fuzi"),
-                .product(name: "ReadiumZIPFoundation", package: "ZIPFoundation"),
+                .product(name: "ReadiumZIPFoundation", package: "ZIPFoundation")
             ],
             path: "Sources/Shared",
             resources: [
-                .process("Resources"),
-            ],
-            linkerSettings: [
-                .linkedFramework("CoreServices"),
-                .linkedFramework("UIKit"),
+                .process("Resources")
             ]
         ),
         .testTarget(
             name: "ReadiumSharedTests",
             dependencies: [
                 "ReadiumShared",
-                "TestPublications",
+                "TestPublications"
             ],
             path: "Tests/SharedTests",
             resources: [
-                .copy("Fixtures"),
+                .copy("Fixtures")
             ]
         ),
 
