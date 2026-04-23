@@ -25,7 +25,7 @@ public struct DeviceAttributes: Codable {
 import AppKit
 import SystemConfiguration
 
-public struct DeviceAttribute: Codable {
+public struct DeviceAttributes: Codable {
 
     public static var name: String {
         let name = SCDynamicStoreCopyComputerName(nil, nil) as String?
