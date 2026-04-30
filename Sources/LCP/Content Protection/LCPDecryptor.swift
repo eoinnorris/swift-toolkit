@@ -177,7 +177,9 @@ final class LCPDecryptor {
                             // Exclude the bytes added to match a multiple of AESBlockSize.
                             let sliceStart = (rangeFirst - encryptedStart)
 
-                            let isLastBlockRead = encryptedLength - encryptedEndExclusive <= AESBlockSize
+                            let isLastBlockRead = encryptedEndExclusive >= encryptedLength
+                                || encryptedLength - encryptedEndExclusive <= AESBlockSize
+                            
                             let rangeLength = isLastBlockRead
                                 // Use decrypted length to ensure `rangeLast` doesn't exceed decrypted length - 1.
                                 ? min(rangeLast, plainTextSize - 1) - rangeFirst + 1
