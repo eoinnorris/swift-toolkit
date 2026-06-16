@@ -26,6 +26,11 @@ public enum KeychainError: Error {
 ///
 /// This class handles low-level Security framework calls for storing, retrieving,
 /// updating, and deleting data from the iOS/macOS Keychain.
+///
+/// `kSecUseDataProtectionKeychain` is set on all queries so that macOS uses the
+/// modern data-protection keychain (same behaviour as iOS) rather than the legacy
+/// file-based keychain, which requires additional entitlements and can fail with
+/// errSecMissingEntitlement (-34018) in standard sandboxed apps.
 public final class Keychain: Sendable {
     private let serviceName: String
     private let synchronizable: Bool
@@ -123,6 +128,7 @@ public final class Keychain: Sendable {
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: serviceName,
             kSecAttrSynchronizable as String: kSecAttrSynchronizableAny,
+            kSecUseDataProtectionKeychain as String: true,
         ]
         let status = SecItemDelete(query as CFDictionary)
 
@@ -141,6 +147,7 @@ public final class Keychain: Sendable {
             kSecAttrSynchronizable as String: kSecAttrSynchronizableAny,
             kSecReturnAttributes as String: true,
             kSecMatchLimit as String: kSecMatchLimitAll,
+            kSecUseDataProtectionKeychain as String: true,
         ]
 
         var result: AnyObject?
@@ -202,6 +209,7 @@ public final class Keychain: Sendable {
             kSecAttrService as String: serviceName,
             kSecAttrAccount as String: key,
             kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock,
+            kSecUseDataProtectionKeychain as String: true,
         ]
 
         if forAdding {
