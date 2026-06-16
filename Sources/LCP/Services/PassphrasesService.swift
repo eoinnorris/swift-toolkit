@@ -53,7 +53,11 @@ final class PassphrasesService {
 
         if let passphrase = passphrase {
             // Saves the passphrase to open the publication right away next time
-            try await repository.addPassphrase(passphrase, for: license)
+            do {
+                try await repository.addPassphrase(passphrase, for: license)
+            } catch {
+                dprint("Failed to add keychain password")
+            }
         }
 
         return passphrase
