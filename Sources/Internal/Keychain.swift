@@ -163,39 +163,25 @@ public final class Keychain: Sendable {
 
     /// Returns all items stored for this service.
     ///
+    /// Uses a two-pass approach (fetch account names, then fetch data per key)
+    /// because combining kSecReturnData with kSecMatchLimitAll returns errSecParam
+    /// on macOS, while working fine on iOS. The two-pass approach is valid on both.
+    ///
     /// - Returns: A dictionary where keys are account identifiers and values are
     ///   the stored data.
     public func allItems() throws(KeychainError) -> [String: Data] {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: serviceName,
-            kSecAttrSynchronizable as String: kSecAttrSynchronizableAny,
-            kSecReturnAttributes as String: true,
-            kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitAll,
-        ]
+        // Pass 1: fetch all account names (attributes only, no data).
+        let keys = try allKeys()
 
-        var result: AnyObject?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
-
-        if status == errSecItemNotFound {
+        guard !keys.isEmpty else {
             return [:]
         }
 
-        guard status == errSecSuccess else {
-            throw mapError(status)
-        }
-
-        guard let items = result as? [[String: Any]] else {
-            return [:]
-        }
-
+        // Pass 2: fetch data for each key individually using kSecMatchLimitOne.
         var itemsDictionary: [String: Data] = [:]
-        for item in items {
-            if let account = item[kSecAttrAccount as String] as? String,
-               let data = item[kSecValueData as String] as? Data
-            {
-                itemsDictionary[account] = data
+        for key in keys {
+            if let data = try load(forKey: key) {
+                itemsDictionary[key] = data
             }
         }
 
